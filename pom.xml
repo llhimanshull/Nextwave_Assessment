@@ -97,7 +97,13 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
-		<!-- ==================== DATABASE DRIVER ==================== -->
+		<!-- ==================== SPRING BOOT ACTUATOR ==================== -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
+		<!-- ==================== DATABASE ==================== -->
 
 		<dependency>
 			<groupId>org.postgresql</groupId>

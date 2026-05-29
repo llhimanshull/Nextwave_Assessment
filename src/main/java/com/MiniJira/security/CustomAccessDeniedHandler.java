@@ -24,10 +24,9 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 
         ErrorResponse error = ErrorResponse.builder()
-                .status(HttpStatus.FORBIDDEN.value())
-                .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+                .status(HttpServletResponse.SC_FORBIDDEN)
+                .code(com.minijira.exception.ErrorCode.FORBIDDEN.name())
                 .message("You do not have permission to access this resource")
-                .timestamp(LocalDateTime.now())
                 .build();
 
         ObjectMapper mapper = new ObjectMapper();

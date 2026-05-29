@@ -9,10 +9,22 @@ spring:
   # POINTING TO DOCKERIZED POSTGRES - PORT 5433 ON HOST TO AVOID CONFLICT WITH YOUR
   # EXISTING LOCAL POSTGRES INSTANCE WHICH IS ALREADY RUNNING ON DEFAULT PORT 5432
   datasource:
-    url: jdbc:postgresql://localhost:5433/minijira
-    username: minijira_user
-    # password is now in application-secrets.yaml (ignored by git)
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/minijira}
+    username: ${SPRING_DATASOURCE_USERNAME:minijira_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:minijira_pass}
     driver-class-name: org.postgresql.Driver
+    # HikariCP Retry settings
+    hikari:
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  # ==================== FLYWAY RETRY ====================
+  flyway:
+    enabled: true
+    connect-retries: 10
+    connect-retries-interval: 3
+    locations: classpath:db/migration
+    baseline-on-migrate: true
 
   # ==================== JPA / HIBERNATE ====================
   # NONE FOR NOW - NO ENTITIES EXIST YET SO NOTHING TO VALIDATE.
@@ -26,12 +38,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
-  # ==================== FLYWAY MIGRATIONS ====================
-  # FLYWAY RUNS AUTOMATICALLY ON STARTUP AND APPLIES ANY PENDING MIGRATION SCRIPTS
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
 
   # ==================== REDIS CACHE ====================
   # REDIS RUNS IN DOCKER ON PORT 6380 TO AVOID CONFLICT WITH ANY LOCAL REDIS INSTANCE

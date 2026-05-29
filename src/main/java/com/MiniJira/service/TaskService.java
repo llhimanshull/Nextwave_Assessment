@@ -13,6 +13,9 @@ import com.minijira.security.CustomUserDetails;
 import com.minijira.security.SecurityUtils;
 import com.minijira.validation.TaskStatusTransitionValidator;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +29,10 @@ public class TaskService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final TaskStatusTransitionValidator transitionValidator;
+    private final CacheManager cacheManager;
 
     @Transactional
+    @CacheEvict(value = "tasks", key = "#request.assigneeId != null ? #request.assigneeId.toString() : 'UNASSIGNED'")
     public TaskResponse createTask(TaskRequest request) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
@@ -45,7 +50,10 @@ public class TaskService {
         if (request.getAssigneeId() != null) {
             assignee = userRepository.findById(request.getAssigneeId())
                     .filter(u -> u.getOrganization().getId().equals(currentOrgId))
-                    .orElseThrow(() -> new IllegalArgumentException("Assignee not found or does not belong to your organization"));
+                    .orElseThrow(() -> new com.minijira.exception.BusinessException(
+                            com.minijira.exception.ErrorCode.VALIDATION_ERROR.name(),
+                            "Assignee not found or does not belong to your organization",
+                            org.springframework.http.HttpStatus.BAD_REQUEST));
         }
 
         Task task = Task.builder()
@@ -65,6 +73,7 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "tasks", key = "#assigneeId != null ? #assigneeId.toString() : 'UNASSIGNED'")
     public org.springframework.data.domain.Page<TaskResponse> getTasks(
             com.minijira.enums.TaskStatus status,
             com.minijira.enums.Priority priority,
@@ -132,11 +141,16 @@ public class TaskService {
 
         // Validate assignee if changed
         User assignee = task.getAssignee();
+        UUID oldAssigneeId = assignee != null ? assignee.getId() : null;
+        
         if (request.getAssigneeId() != null) {
             if (assignee == null || !assignee.getId().equals(request.getAssigneeId())) {
                 assignee = userRepository.findById(request.getAssigneeId())
                         .filter(u -> u.getOrganization().getId().equals(currentOrgId))
-                        .orElseThrow(() -> new IllegalArgumentException("Assignee not found or does not belong to your organization"));
+                        .orElseThrow(() -> new com.minijira.exception.BusinessException(
+                                com.minijira.exception.ErrorCode.VALIDATION_ERROR.name(),
+                                "Assignee not found or does not belong to your organization",
+                                org.springframework.http.HttpStatus.BAD_REQUEST));
             }
         } else {
             assignee = null;
@@ -165,6 +179,18 @@ public class TaskService {
         task.setAssignee(assignee);
         task.setDueDate(request.getDueDate());
 
+        // Cache eviction for both old and new assignee
+        org.springframework.cache.Cache cache = cacheManager.getCache("tasks");
+        if (cache != null) {
+            String oldAssigneeKey = oldAssigneeId != null ? oldAssigneeId.toString() : "UNASSIGNED";
+            String newAssigneeKey = request.getAssigneeId() != null ? request.getAssigneeId().toString() : "UNASSIGNED";
+            
+            cache.evict(oldAssigneeKey);
+            if (!oldAssigneeKey.equals(newAssigneeKey)) {
+                cache.evict(newAssigneeKey);
+            }
+        }
+
         return mapToResponse(taskRepository.save(task));
     }
 
@@ -180,7 +206,13 @@ public class TaskService {
             throw new org.springframework.security.access.AccessDeniedException("Task not found in your organization");
         }
 
+        UUID assigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
         taskRepository.delete(task);
+
+        org.springframework.cache.Cache cache = cacheManager.getCache("tasks");
+        if (cache != null) {
+            cache.evict(assigneeId != null ? assigneeId.toString() : "UNASSIGNED");
+        }
     }
 
     private TaskResponse mapToResponse(Task task) {

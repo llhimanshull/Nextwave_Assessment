@@ -14,15 +14,15 @@ services:
     container_name: minijira-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: minijira
-      POSTGRES_USER: minijira_user
-      POSTGRES_PASSWORD: minijira_pass
+      POSTGRES_DB: ${DB_NAME:-minijira}
+      POSTGRES_USER: ${DB_USER:-minijira_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-minijira_pass}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U minijira_user -d minijira"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-minijira_user} -d ${DB_NAME:-minijira}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,8 +41,6 @@ services:
       retries: 5
 
   # ==================== SPRING BOOT APP ====================
-  # ONLY STARTS AFTER POSTGRES AND REDIS ARE HEALTHY
-  # SPRING BOOT CONNECTS TO INTERNAL DOCKER NETWORK HOSTNAMES (NOT LOCALHOST)
   app:
     build:
       context: .
@@ -55,19 +53,21 @@ services:
       redis:
         condition: service_healthy
     environment:
-      # OVERRIDE THE DATASOURCE URL TO USE DOCKER INTERNAL HOSTNAME, NOT LOCALHOST
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/minijira
-      SPRING_DATASOURCE_USERNAME: minijira_user
-      SPRING_DATASOURCE_PASSWORD: minijira_pass
-      # OVERRIDE REDIS HOST TO USE DOCKER INTERNAL HOSTNAME
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-minijira}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-minijira_user}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-minijira_pass}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      # JWT SECRET - IN PRODUCTION THIS MUST COME FROM A SECRET MANAGER
-      APP_JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      APP_JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
-  # NAMED VOLUME ENSURES POSTGRES DATA PERSISTS ACROSS CONTAINER RESTARTS
   postgres_data:
     driver: local

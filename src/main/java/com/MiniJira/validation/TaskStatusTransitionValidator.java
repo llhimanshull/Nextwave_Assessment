@@ -24,8 +24,10 @@ public class TaskStatusTransitionValidator {
         
         Set<TaskStatus> allowed = validTransitions.getOrDefault(currentStatus, Set.of());
         if (!allowed.contains(newStatus)) {
-            throw new IllegalArgumentException(
-                    String.format("Invalid status transition from %s to %s", currentStatus, newStatus));
+            throw new com.minijira.exception.BusinessException(
+                    com.minijira.exception.ErrorCode.INVALID_TRANSITION.name(),
+                    String.format("Invalid status transition from %s to %s", currentStatus, newStatus),
+                    org.springframework.http.HttpStatus.BAD_REQUEST);
         }
     }
 }

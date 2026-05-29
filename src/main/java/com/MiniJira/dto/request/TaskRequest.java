@@ -30,5 +30,6 @@ public class TaskRequest {
 
     private UUID assigneeId;
 
+    @jakarta.validation.constraints.Future(message = "Due date must be in the future")
     private LocalDate dueDate;
 }
