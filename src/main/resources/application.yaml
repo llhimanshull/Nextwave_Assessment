@@ -65,7 +65,7 @@ server:
 # SECRET SHOULD BE AT LEAST 256 BITS - OVERRIDE VIA ENVIRONMENT VARIABLE IN PRODUCTION
 app:
   jwt:
-    # secret is now in application-secrets.yaml (ignored by git)
+    secret: ${APP_JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     access-token-expiration: 900000       # 15 MINUTES IN MILLISECONDS
     refresh-token-expiration: 604800000   # 7 DAYS IN MILLISECONDS
 
