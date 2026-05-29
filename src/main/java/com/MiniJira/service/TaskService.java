@@ -9,7 +9,9 @@ import com.minijira.exception.ResourceNotFoundException;
 import com.minijira.repository.ProjectRepository;
 import com.minijira.repository.TaskRepository;
 import com.minijira.repository.UserRepository;
+import com.minijira.security.CustomUserDetails;
 import com.minijira.security.SecurityUtils;
+import com.minijira.validation.TaskStatusTransitionValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final TaskStatusTransitionValidator transitionValidator;
 
     @Transactional
     public TaskResponse createTask(TaskRequest request) {
@@ -59,6 +62,125 @@ public class TaskService {
         Task savedTask = taskRepository.save(task);
 
         return mapToResponse(savedTask);
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<TaskResponse> getTasks(
+            com.minijira.enums.TaskStatus status,
+            com.minijira.enums.Priority priority,
+            UUID assigneeId,
+            org.springframework.data.domain.Pageable pageable) {
+
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        com.minijira.security.CustomUserDetails currentUser = SecurityUtils.getCurrentUser();
+
+        // If user is MEMBER, force assigneeId to themselves
+        boolean isMember = currentUser != null && currentUser.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_MEMBER"));
+        
+        UUID finalAssigneeId = isMember ? currentUserId : assigneeId;
+
+        org.springframework.data.jpa.domain.Specification<Task> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+
+            // Must belong to the user's organization
+            predicates.add(cb.equal(root.get("project").get("organization").get("id"), currentOrgId));
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+            if (priority != null) {
+                predicates.add(cb.equal(root.get("priority"), priority));
+            }
+            if (finalAssigneeId != null) {
+                predicates.add(cb.equal(root.get("assignee").get("id"), finalAssigneeId));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        return taskRepository.findAll(spec, pageable).map(this::mapToResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public TaskResponse getTask(UUID id) {
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", id));
+
+        // The @PreAuthorize on controller checks if it's the member's task, 
+        // but we still need to ensure ADMIN/MANAGER can only see tasks in their org.
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        if (!task.getProject().getOrganization().getId().equals(currentOrgId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Task not found in your organization");
+        }
+
+        return mapToResponse(task);
+    }
+
+    @Transactional
+    public TaskResponse updateTask(UUID id, TaskRequest request) {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", id));
+
+        // Ensure task belongs to user's org
+        if (!task.getProject().getOrganization().getId().equals(currentOrgId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Task not found in your organization");
+        }
+
+        // Validate assignee if changed
+        User assignee = task.getAssignee();
+        if (request.getAssigneeId() != null) {
+            if (assignee == null || !assignee.getId().equals(request.getAssigneeId())) {
+                assignee = userRepository.findById(request.getAssigneeId())
+                        .filter(u -> u.getOrganization().getId().equals(currentOrgId))
+                        .orElseThrow(() -> new IllegalArgumentException("Assignee not found or does not belong to your organization"));
+            }
+        } else {
+            assignee = null;
+        }
+
+        if (request.getStatus() != null && request.getStatus() != task.getStatus()) {
+            // Validate the transition logic
+            transitionValidator.validateTransition(task.getStatus(), request.getStatus());
+
+            // Specific Rule: BLOCKED reachable from TODO, IN_PROGRESS, IN_REVIEW — only ASSIGNEE or MANAGER can transition
+            if (request.getStatus() == com.minijira.enums.TaskStatus.BLOCKED) {
+                CustomUserDetails currentUser = SecurityUtils.getCurrentUser();
+                boolean isManager = currentUser.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_MANAGER"));
+                boolean isAssignee = task.getAssignee() != null && task.getAssignee().getId().equals(currentUser.getId());
+                
+                if (!isManager && !isAssignee) {
+                    throw new org.springframework.security.access.AccessDeniedException("Only the assignee or a MANAGER can transition a task to BLOCKED");
+                }
+            }
+            task.setStatus(request.getStatus());
+        }
+
+        task.setTitle(request.getTitle());
+        task.setDescription(request.getDescription());
+        task.setPriority(request.getPriority());
+        task.setAssignee(assignee);
+        task.setDueDate(request.getDueDate());
+
+        return mapToResponse(taskRepository.save(task));
+    }
+
+    @Transactional
+    public void deleteTask(UUID id) {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        
+        Task task = taskRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", id));
+
+        // Ensure task belongs to user's org
+        if (!task.getProject().getOrganization().getId().equals(currentOrgId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Task not found in your organization");
+        }
+
+        taskRepository.delete(task);
     }
 
     private TaskResponse mapToResponse(Task task) {
