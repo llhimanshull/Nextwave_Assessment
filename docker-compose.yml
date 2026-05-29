@@ -1,0 +1,73 @@
+# ============================================================
+# DOCKER COMPOSE - MINIJIRA FULL STACK
+# RUNS: APP + POSTGRES + REDIS
+# ALL PORTS ARE OFFSET TO AVOID CONFLICT WITH LOCALLY RUNNING SERVICES:
+#   POSTGRES -> HOST PORT 5433 (LOCAL POSTGRES STAYS ON 5432)
+#   REDIS    -> HOST PORT 6380 (LOCAL REDIS STAYS ON 6379)
+# ============================================================
+
+services:
+
+  # ==================== POSTGRESQL ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: minijira-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: minijira
+      POSTGRES_USER: minijira_user
+      POSTGRES_PASSWORD: minijira_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minijira_user -d minijira"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== REDIS ====================
+  redis:
+    image: redis:7-alpine
+    container_name: minijira-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== SPRING BOOT APP ====================
+  # ONLY STARTS AFTER POSTGRES AND REDIS ARE HEALTHY
+  # SPRING BOOT CONNECTS TO INTERNAL DOCKER NETWORK HOSTNAMES (NOT LOCALHOST)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minijira-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # OVERRIDE THE DATASOURCE URL TO USE DOCKER INTERNAL HOSTNAME, NOT LOCALHOST
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/minijira
+      SPRING_DATASOURCE_USERNAME: minijira_user
+      SPRING_DATASOURCE_PASSWORD: minijira_pass
+      # OVERRIDE REDIS HOST TO USE DOCKER INTERNAL HOSTNAME
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # JWT SECRET - IN PRODUCTION THIS MUST COME FROM A SECRET MANAGER
+      APP_JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    ports:
+      - "8080:8080"
+
+volumes:
+  # NAMED VOLUME ENSURES POSTGRES DATA PERSISTS ACROSS CONTAINER RESTARTS
+  postgres_data:
+    driver: local

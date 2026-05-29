@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: MiniJira
+
+  config:
+    import: optional:classpath:application-secrets.yaml
+
+  # ==================== DATABASE ====================
+  # POINTING TO DOCKERIZED POSTGRES - PORT 5433 ON HOST TO AVOID CONFLICT WITH YOUR
+  # EXISTING LOCAL POSTGRES INSTANCE WHICH IS ALREADY RUNNING ON DEFAULT PORT 5432
+  datasource:
+    url: jdbc:postgresql://localhost:5433/minijira
+    username: minijira_user
+    # password is now in application-secrets.yaml (ignored by git)
+    driver-class-name: org.postgresql.Driver
+
+  # ==================== JPA / HIBERNATE ====================
+  # NONE FOR NOW - NO ENTITIES EXIST YET SO NOTHING TO VALIDATE.
+  # WILL SWITCH TO validate ONCE ENTITIES AND FLYWAY MIGRATIONS ARE IN PLACE.
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # ==================== FLYWAY MIGRATIONS ====================
+  # FLYWAY RUNS AUTOMATICALLY ON STARTUP AND APPLIES ANY PENDING MIGRATION SCRIPTS
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # ==================== REDIS CACHE ====================
+  # REDIS RUNS IN DOCKER ON PORT 6380 TO AVOID CONFLICT WITH ANY LOCAL REDIS INSTANCE
+  data:
+    redis:
+      host: localhost
+      port: 6380
+      password: ""
+      timeout: 60000ms
+
+  # ==================== CACHE CONFIG ====================
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000  # 5 MINUTES DEFAULT TTL FOR ALL CACHE ENTRIES
+
+# ==================== SERVER ====================
+server:
+  port: 8080
+  error:
+    include-message: never   # NEVER LEAK INTERNAL ERROR MESSAGES TO THE CLIENT
+    include-stacktrace: never
+
+# ==================== JWT CONFIGURATION ====================
+# SECRET SHOULD BE AT LEAST 256 BITS - OVERRIDE VIA ENVIRONMENT VARIABLE IN PRODUCTION
+app:
+  jwt:
+    # secret is now in application-secrets.yaml (ignored by git)
+    access-token-expiration: 900000       # 15 MINUTES IN MILLISECONDS
+    refresh-token-expiration: 604800000   # 7 DAYS IN MILLISECONDS
+
+# ==================== SPRINGDOC / SWAGGER ====================
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+# ==================== LOGGING ====================
+logging:
+  level:
+    com.minijira: DEBUG
+    org.springframework.security: INFO
+    org.flywaydb: INFO
