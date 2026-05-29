@@ -31,4 +31,33 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> createProject(@Valid @RequestBody ProjectRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(projectService.createProject(request));
     }
+
+    @GetMapping
+    @Operation(summary = "Get all projects", description = "Get all projects in the current user's organization.")
+    public ResponseEntity<org.springframework.data.domain.Page<ProjectResponse>> getProjects(
+            org.springframework.data.domain.Pageable pageable) {
+        return ResponseEntity.ok(projectService.getProjects(pageable));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get a project by ID", description = "Get a project in the current user's organization.")
+    public ResponseEntity<ProjectResponse> getProject(@PathVariable UUID id) {
+        return ResponseEntity.ok(projectService.getProject(id));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(summary = "Update a project", description = "Admin or Manager only.")
+    public ResponseEntity<ProjectResponse> updateProject(
+            @PathVariable UUID id, @Valid @RequestBody ProjectRequest request) {
+        return ResponseEntity.ok(projectService.updateProject(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(summary = "Delete a project", description = "Admin or Manager only.")
+    public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
+        projectService.deleteProject(id);
+        return ResponseEntity.noContent().build();
+    }
 }

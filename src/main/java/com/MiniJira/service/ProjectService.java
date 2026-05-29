@@ -56,4 +56,61 @@ public class ProjectService {
                 .createdAt(savedProject.getCreatedAt())
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public org.springframework.data.domain.Page<ProjectResponse> getProjects(org.springframework.data.domain.Pageable pageable) {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        return projectRepository.findAllByOrganizationId(currentOrgId, pageable)
+                .map(p -> ProjectResponse.builder()
+                        .id(p.getId())
+                        .organizationId(p.getOrganization().getId())
+                        .name(p.getName())
+                        .description(p.getDescription())
+                        .createdById(p.getCreatedBy().getId())
+                        .createdAt(p.getCreatedAt())
+                        .build());
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectResponse getProject(UUID id) {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        Project p = projectRepository.findByIdAndOrganizationId(id, currentOrgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project", id));
+        return ProjectResponse.builder()
+                .id(p.getId())
+                .organizationId(p.getOrganization().getId())
+                .name(p.getName())
+                .description(p.getDescription())
+                .createdById(p.getCreatedBy().getId())
+                .createdAt(p.getCreatedAt())
+                .build();
+    }
+
+    @Transactional
+    public ProjectResponse updateProject(UUID id, ProjectRequest request) {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        Project project = projectRepository.findByIdAndOrganizationId(id, currentOrgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project", id));
+
+        project.setName(request.getName());
+        project.setDescription(request.getDescription());
+
+        Project savedProject = projectRepository.save(project);
+        return ProjectResponse.builder()
+                .id(savedProject.getId())
+                .organizationId(savedProject.getOrganization().getId())
+                .name(savedProject.getName())
+                .description(savedProject.getDescription())
+                .createdById(savedProject.getCreatedBy().getId())
+                .createdAt(savedProject.getCreatedAt())
+                .build();
+    }
+
+    @Transactional
+    public void deleteProject(UUID id) {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        Project project = projectRepository.findByIdAndOrganizationId(id, currentOrgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project", id));
+        projectRepository.delete(project);
+    }
 }
