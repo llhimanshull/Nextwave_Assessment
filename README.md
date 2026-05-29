@@ -129,6 +129,3 @@ MiniJira utilizes **Spring Cache + Redis (Lettuce)** to optimize the `GET /api/v
 - 📧 **Email Integration:** Hook up Amazon SES or SendGrid for task assignment notifications.
 
 <br/>
-<div align="center">
-  <i>Developed for the NextWave SDE II Assessment</i>
-</div>
