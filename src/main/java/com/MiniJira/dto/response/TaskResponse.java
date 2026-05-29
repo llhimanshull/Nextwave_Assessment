@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Getter
 @Builder
-public class TaskResponse {
+public class TaskResponse implements java.io.Serializable {
     private UUID id;
     private UUID projectId;
     private String title;

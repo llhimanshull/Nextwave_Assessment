@@ -13,9 +13,9 @@ ON CONFLICT (id) DO NOTHING;
 -- Hash: $2a$12$Z0s37B8O3G5lK5uQvUf8/.N79jR3rA0gX2wR1E/pW5ZtF0.u6mEWe
 INSERT INTO users (id, organization_id, name, email, password_hash, role, created_at)
 VALUES 
-    ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Alice Admin', 'admin@nextwave.com', '$2a$12$Z0s37B8O3G5lK5uQvUf8/.N79jR3rA0gX2wR1E/pW5ZtF0.u6mEWe', 'ADMIN', now()),
-    ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'Bob Manager', 'manager@nextwave.com', '$2a$12$Z0s37B8O3G5lK5uQvUf8/.N79jR3rA0gX2wR1E/pW5ZtF0.u6mEWe', 'MANAGER', now()),
-    ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'Charlie Member', 'member@nextwave.com', '$2a$12$Z0s37B8O3G5lK5uQvUf8/.N79jR3rA0gX2wR1E/pW5ZtF0.u6mEWe', 'MEMBER', now())
+    ('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Alice Admin', 'admin@nextwave.com', '$2a$10$lI3f/goOEAl7FvObQNU/1.qYMdmNy0ILXC.obAtRocrPB/DcobyXm', 'ADMIN', now()),
+    ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'Bob Manager', 'manager@nextwave.com', '$2a$10$lI3f/goOEAl7FvObQNU/1.qYMdmNy0ILXC.obAtRocrPB/DcobyXm', 'MANAGER', now()),
+    ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'Charlie Member', 'member@nextwave.com', '$2a$10$lI3f/goOEAl7FvObQNU/1.qYMdmNy0ILXC.obAtRocrPB/DcobyXm', 'MEMBER', now())
 ON CONFLICT (email) DO NOTHING;
 
 -- Insert a sample project so the reviewer can immediately test task creation

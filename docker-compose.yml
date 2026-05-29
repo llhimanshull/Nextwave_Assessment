@@ -68,6 +68,19 @@ services:
       retries: 3
       start_period: 40s
 
+  # ==================== REACT FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: minijira-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      app:
+        condition: service_healthy
+
 volumes:
   postgres_data:
     driver: local
