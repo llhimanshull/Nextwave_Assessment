@@ -34,11 +34,12 @@ public class TaskController {
     @GetMapping
     @Operation(summary = "Get tasks", description = "Paginated and filterable. Members only see their own tasks.")
     public ResponseEntity<org.springframework.data.domain.Page<TaskResponse>> getTasks(
+            @RequestParam(required = false) UUID projectId,
             @RequestParam(required = false) com.minijira.enums.TaskStatus status,
             @RequestParam(required = false) com.minijira.enums.Priority priority,
             @RequestParam(required = false) UUID assigneeId,
             org.springframework.data.domain.Pageable pageable) {
-        return ResponseEntity.ok(taskService.getTasks(status, priority, assigneeId, pageable));
+        return ResponseEntity.ok(taskService.getTasks(projectId, status, priority, assigneeId, pageable));
     }
 
     @GetMapping("/{id}")

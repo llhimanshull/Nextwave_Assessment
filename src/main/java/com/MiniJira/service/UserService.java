@@ -36,36 +36,72 @@ public class UserService {
             throw new AccessDeniedException("You do not have permission to manage this user");
         }
 
-        String currentRole = currentUser.getAuthorities().iterator().next().getAuthority(); // E.g. "ROLE_ADMIN" or "ROLE_MANAGER"
-        Role newRole = request.getRole();
+        String currentRole = currentUser.getAuthorities().iterator().next().getAuthority();
 
-        // 2. Evaluate permission logic based on roles
-        if (currentRole.equals("ROLE_MANAGER")) {
-            // Manager can only promote to MANAGER
-            if (newRole == Role.ADMIN) {
-                throw new AccessDeniedException("Managers cannot promote users to ADMIN");
-            }
-            // Manager can only promote a MEMBER
-            if (targetUser.getRole() == Role.ADMIN) {
-                throw new AccessDeniedException("Managers cannot change the role of an ADMIN");
-            }
-        } else if (!currentRole.equals("ROLE_ADMIN")) {
-            // Just in case a MEMBER somehow gets here
-            throw new AccessDeniedException("Members cannot change roles");
+        if (!currentRole.equals("ROLE_ADMIN")) {
+            throw new AccessDeniedException("Only ADMINs can change roles");
         }
-        // If ADMIN, they can promote anyone to ADMIN or MANAGER.
 
-        // Apply update
-        targetUser.setRole(newRole);
+        targetUser.setRole(request.getRole());
         User savedUser = userRepository.save(targetUser);
 
+        return mapToResponse(savedUser);
+    }
+
+    @Transactional
+    public UserResponse updateUserDetails(UUID targetUserId, com.minijira.dto.request.UserUpdateRequest request) {
+        CustomUserDetails currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new AccessDeniedException("User not authenticated");
+        }
+
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", targetUserId));
+
+        if (!targetUser.getOrganization().getId().equals(currentUser.getOrganizationId())) {
+            throw new AccessDeniedException("You do not have permission to manage this user");
+        }
+
+        String currentRole = currentUser.getAuthorities().iterator().next().getAuthority();
+        boolean isSelf = targetUser.getId().equals(currentUser.getId());
+
+        if (!isSelf && !currentRole.equals("ROLE_ADMIN")) {
+            throw new AccessDeniedException("You can only modify your own details, unless you are an ADMIN");
+        }
+
+        // Validate email uniqueness if changed
+        if (!targetUser.getEmail().equals(request.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new com.minijira.exception.BusinessException(
+                        com.minijira.exception.ErrorCode.VALIDATION_ERROR.name(),
+                        "Email is already in use",
+                        org.springframework.http.HttpStatus.BAD_REQUEST);
+            }
+        }
+
+        targetUser.setName(request.getName());
+        targetUser.setEmail(request.getEmail());
+
+        User savedUser = userRepository.save(targetUser);
+        return mapToResponse(savedUser);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<UserResponse> getUsersByOrganization() {
+        UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
+        return userRepository.findByOrganizationId(currentOrgId).stream()
+                .map(this::mapToResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private UserResponse mapToResponse(User user) {
         return UserResponse.builder()
-                .id(savedUser.getId())
-                .name(savedUser.getName())
-                .email(savedUser.getEmail())
-                .role(savedUser.getRole())
-                .organizationId(savedUser.getOrganization().getId())
-                .createdAt(savedUser.getCreatedAt())
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .organizationId(user.getOrganization().getId())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 }

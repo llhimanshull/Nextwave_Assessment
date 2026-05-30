@@ -23,12 +23,27 @@ public class UserController {
 
     private final UserService userService;
 
-    @PutMapping("/{userId}/role")
+    @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(summary = "Promote a user", description = "Admin can promote to MANAGER/ADMIN. Manager can promote to MANAGER.")
+    @Operation(summary = "Get all users", description = "Admin or Manager can fetch all users in their organization.")
+    public ResponseEntity<java.util.List<UserResponse>> getUsers() {
+        return ResponseEntity.ok(userService.getUsersByOrganization());
+    }
+
+    @PutMapping("/{userId}/role")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Promote a user", description = "Admin can change roles of users.")
     public ResponseEntity<UserResponse> updateRole(
             @PathVariable UUID userId,
             @Valid @RequestBody RoleUpdateRequest request) {
         return ResponseEntity.ok(userService.updateRole(userId, request));
+    }
+
+    @PutMapping("/{userId}")
+    @Operation(summary = "Update user details", description = "Users can update their own details. Admins can update any user's details.")
+    public ResponseEntity<UserResponse> updateUserDetails(
+            @PathVariable UUID userId,
+            @Valid @RequestBody com.minijira.dto.request.UserUpdateRequest request) {
+        return ResponseEntity.ok(userService.updateUserDetails(userId, request));
     }
 }

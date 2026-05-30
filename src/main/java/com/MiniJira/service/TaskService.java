@@ -32,7 +32,7 @@ public class TaskService {
     private final CacheManager cacheManager;
 
     @Transactional
-    @CacheEvict(value = "tasks", key = "#request.assigneeId != null ? #request.assigneeId.toString() : 'UNASSIGNED'")
+    @CacheEvict(value = "tasks", allEntries = true)
     public TaskResponse createTask(TaskRequest request) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         UUID currentOrgId = SecurityUtils.getCurrentOrganizationId();
@@ -73,8 +73,9 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "tasks", key = "#assigneeId != null ? #assigneeId.toString() : 'UNASSIGNED'")
+    @Cacheable(value = "tasks", key = "#projectId != null ? #projectId.toString() + '-' + (#assigneeId != null ? #assigneeId.toString() : 'UNASSIGNED') : 'ALL-' + (#assigneeId != null ? #assigneeId.toString() : 'UNASSIGNED')")
     public org.springframework.data.domain.Page<TaskResponse> getTasks(
+            UUID projectId,
             com.minijira.enums.TaskStatus status,
             com.minijira.enums.Priority priority,
             UUID assigneeId,
@@ -96,6 +97,9 @@ public class TaskService {
             // Must belong to the user's organization
             predicates.add(cb.equal(root.get("project").get("organization").get("id"), currentOrgId));
 
+            if (projectId != null) {
+                predicates.add(cb.equal(root.get("project").get("id"), projectId));
+            }
             if (status != null) {
                 predicates.add(cb.equal(root.get("status"), status));
             }
@@ -182,13 +186,7 @@ public class TaskService {
         // Cache eviction for both old and new assignee
         org.springframework.cache.Cache cache = cacheManager.getCache("tasks");
         if (cache != null) {
-            String oldAssigneeKey = oldAssigneeId != null ? oldAssigneeId.toString() : "UNASSIGNED";
-            String newAssigneeKey = request.getAssigneeId() != null ? request.getAssigneeId().toString() : "UNASSIGNED";
-            
-            cache.evict(oldAssigneeKey);
-            if (!oldAssigneeKey.equals(newAssigneeKey)) {
-                cache.evict(newAssigneeKey);
-            }
+            cache.clear();
         }
 
         return mapToResponse(taskRepository.save(task));
@@ -211,7 +209,7 @@ public class TaskService {
 
         org.springframework.cache.Cache cache = cacheManager.getCache("tasks");
         if (cache != null) {
-            cache.evict(assigneeId != null ? assigneeId.toString() : "UNASSIGNED");
+            cache.clear();
         }
     }
 
