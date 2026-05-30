@@ -46,9 +46,21 @@ docker compose up -d --build
 ```
 
 ### 🌐 Endpoints
+- **Frontend App:** `http://localhost:3000`
 - **API Base URL:** `http://localhost:8080/api/v1`
 - **Swagger UI:** `http://localhost:8080/swagger-ui.html`
 - **OpenAPI JSON:** `http://localhost:8080/api-docs`
+
+### 👥 Sample Users & Roles
+- **Admin User**: `admin@minijira.com` / `adminpass`
+- **Manager User**: `manager@minijira.com` / `managerpass`
+- **Member User**: `member@minijira.com` / `memberpass`
+
+> **Note for Reviewers:**
+> - When registering a new account, users are granted the `MEMBER` role by default. To elevate their privileges, log in using the Admin account above and modify their role via the Admin dashboard.
+> - For this assessment, the application is restricted to a **single organization**. The database and backend are fully designed for multi-tenancy, and multi-org support can easily be toggled on in the future.
+> - The **Frontend React application** is partially connected to demonstrate the core user flows (Authentication, Project Boards, Task Management, Profile, and User Management). 
+> - **The entire assessment is fully complete in the backend.** Since not all backend endpoints have an associated frontend view, please use the **Swagger UI** (`http://localhost:8080/swagger-ui.html`) or **OpenAPI JSON** to explore, send requests, and test the remaining endpoints!
 
 ---
 
