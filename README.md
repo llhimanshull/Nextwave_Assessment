@@ -52,9 +52,9 @@ docker compose up -d --build
 - **OpenAPI JSON:** `http://localhost:8080/api-docs`
 
 ### 👥 Sample Users & Roles
-- **Admin User**: `admin@minijira.com` / `adminpass`
-- **Manager User**: `manager@minijira.com` / `managerpass`
-- **Member User**: `member@minijira.com` / `memberpass`
+- **Admin User**: `admin@nextwave.com` / `password123`
+- **Manager User**: `manager@nextwave.com` / `password123`
+- **Member User**: `member@nextwave.com` / `password123`
 
 > **Note for Reviewers:**
 > - When registering a new account, users are granted the `MEMBER` role by default. To elevate their privileges, log in using the Admin account above and modify their role via the Admin dashboard.
